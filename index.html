@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>成年後見制度インタラクティブガイド</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Calm Neutral Blue -->
+    <!-- Application Structure Plan: A user-centric, problem-solving flow. It starts with a key choice: "planning for the future" (Voluntary) vs. "needing help now" (Statutory). This choice reveals relevant sections. The app then presents common information (Guardian's Role, Costs, Pros/Cons) and concludes with actionable local resources. This structure is chosen over the report's linear format to reduce cognitive load and guide users directly to the information that matches their immediate situation, making a complex topic more accessible. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Statutory vs. Voluntary -> Goal: Decide -> Viz: Two large clickable cards -> Interaction: Click reveals content -> Justification: Simplifies the primary user choice.
+        - Report Info: 3 Statutory Levels -> Goal: Compare -> Viz: Interactive tabs -> Interaction: Click shows details -> Justification: Breaks down complex legal types into manageable pieces.
+        - Report Info: Guardian Remuneration -> Goal: Understand Costs -> Viz: Bar Chart (Chart.js) -> Interaction: Hover for details -> Justification: Makes abstract financial data tangible and easy to compare.
+        - Report Info: Pros & Cons -> Goal: Evaluate -> Viz: Two-column layout with icons -> Interaction: Static -> Justification: Uses a strong visual metaphor ("Shield vs. Cage") for better recall of the system's core trade-offs.
+        - Report Info: Procedures -> Goal: Understand Steps -> Viz: HTML/CSS step-by-step diagram -> Interaction: Static -> Justification: Clarifies a complex bureaucratic process visually.
+        - Report Info: Local Resources -> Goal: Take Action -> Viz: Formatted List -> Interaction: Static -> Justification: Provides clear, actionable next steps.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #f8f9fa;
+            color: #343a40;
+        }
+        .nav-button {
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .nav-button.active {
+            background-color: #005A9C;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .nav-button:not(.active):hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .content-section {
+            display: none;
+        }
+        .content-section.active {
+            display: block;
+        }
+        .tab-button {
+            transition: all 0.3s ease;
+        }
+        .tab-button.active {
+            border-color: #005A9C;
+            background-color: #e7f3ff;
+            color: #005A9C;
+            font-weight: 700;
+        }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .icon-placeholder {
+            font-size: 2.5rem;
+            line-height: 1;
+        }
+        .step-connector {
+            position: absolute;
+            top: 50%;
+            left: 100%;
+            transform: translateY(-50%);
+            width: 2rem;
+            height: 2px;
+            background-color: #cbd5e1;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-5xl">
+
+        <header class="text-center mb-12">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-2">成年後見制度インタラクティブガイド</h1>
+            <p class="text-gray-600">複雑な制度を、シンプルに。あなたの状況に合わせた情報を見つけましょう。</p>
+        </header>
+
+        <main>
+            <section id="initial-choice" class="mb-12">
+                <h2 class="text-2xl font-bold text-center mb-6 text-gray-700">あなたの状況はどちらに近いですか？</h2>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <button id="btn-statutory" class="nav-button text-left p-6 bg-white rounded-xl border border-gray-200">
+                        <h3 class="text-xl font-bold text-blue-800 mb-2">今、支援が必要</h3>
+                        <p class="text-gray-600">ご本人やご家族の判断能力が低下し、財産管理や契約などで困っている。</p>
+                        <span class="block mt-4 text-blue-600 font-semibold">法定後見制度を見る →</span>
+                    </button>
+                    <button id="btn-voluntary" class="nav-button text-left p-6 bg-white rounded-xl border border-gray-200">
+                        <h3 class="text-xl font-bold text-green-800 mb-2">将来に備えたい</h3>
+                        <p class="text-gray-600">今は元気だが、将来判断能力が衰えた時のために、自分で準備をしておきたい。</p>
+                        <span class="block mt-4 text-green-600 font-semibold">任意後見制度を見る →</span>
+                    </button>
+                </div>
+            </section>
+
+            <div id="info-container">
+                <section id="statutory-section" class="content-section card p-6 md:p-8 mb-12">
+                    <h2 class="text-2xl font-bold mb-1 text-blue-800">法定後見制度</h2>
+                    <p class="mb-6 text-gray-600">判断能力が不十分になった後、家庭裁判所が援助者を選ぶ制度です。本人の状態に応じて、3つのレベルに分かれています。</p>
+                    <div class="mb-6 border-b border-gray-200">
+                        <nav class="flex space-x-1 -mb-px" aria-label="Tabs">
+                            <button data-tab="kouken" class="tab-button whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">後見</button>
+                            <button data-tab="hosa" class="tab-button whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">保佐</button>
+                            <button data-tab="hojo" class="tab-button whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">補助</button>
+                        </nav>
+                    </div>
+                    <div id="tab-content"></div>
+                </section>
+
+                <section id="voluntary-section" class="content-section card p-6 md:p-8 mb-12">
+                    <h2 class="text-2xl font-bold mb-1 text-green-800">任意後見制度</h2>
+                    <p class="mb-6 text-gray-600">判断能力があるうちに、将来の代理人（任意後見人）と支援内容を契約で決めておく、事前準備のための制度です。</p>
+                    <div class="space-y-8">
+                        <div>
+                            <h3 class="text-lg font-semibold mb-2">主な特徴</h3>
+                            <ul class="list-disc list-inside space-y-2 text-gray-700">
+                                <li><span class="font-bold">自分で後見人を選べる：</span>信頼できる家族や友人を指名できます。</li>
+                                <li><span class="font-bold">支援内容を設計できる：</span>財産管理や身上保護について、希望を契約に盛り込めます。</li>
+                                <li><span class="font-bold text-red-600">取消権がない：</span>本人が不利な契約を結んでも、任意後見人は取り消せません。これが最大の弱点です。</li>
+                                <li><span class="font-bold">監督人が必須：</span>効力発生時、家庭裁判所が必ず任意後見監督人を選び、後見人を監督します。</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold mb-4">手続きの流れ</h3>
+                            <div class="flex flex-col md:flex-row md:space-x-4 space-y-4 md:space-y-0 items-stretch">
+                                <div class="flex-1 text-center p-4 bg-gray-50 rounded-lg relative">
+                                    <div class="text-2xl mb-2">①</div>
+                                    <h4 class="font-bold">契約内容の決定</h4>
+                                    <p class="text-sm text-gray-600">誰に、何を頼むかを決めます。</p>
+                                    <div class="step-connector hidden md:block"></div>
+                                </div>
+                                <div class="flex-1 text-center p-4 bg-gray-50 rounded-lg relative">
+                                    <div class="text-2xl mb-2">②</div>
+                                    <h4 class="font-bold">公正証書の作成</h4>
+                                    <p class="text-sm text-gray-600">公証役場で契約書を作成します。</p>
+                                    <div class="step-connector hidden md:block"></div>
+                                </div>
+                                <div class="flex-1 text-center p-4 bg-gray-50 rounded-lg relative">
+                                    <div class="text-2xl mb-2">③</div>
+                                    <h4 class="font-bold">監督人選任の申立て</h4>
+                                    <p class="text-sm text-gray-600">判断能力低下後、家裁に申立てます。</p>
+                                    <div class="step-connector hidden md:block"></div>
+                                </div>
+                                <div class="flex-1 text-center p-4 bg-gray-50 rounded-lg">
+                                    <div class="text-2xl mb-2">④</div>
+                                    <h4 class="font-bold">任意後見スタート</h4>
+                                    <p class="text-sm text-gray-600">監督人選任で効力が発生します。</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="guardian-role-section" class="content-section card p-6 md:p-8 mb-12">
+                    <h2 class="text-2xl font-bold mb-4 text-gray-800">後見人の役割と限界</h2>
+                    <p class="mb-6 text-gray-600">後見人の仕事は法律・事務手続きが中心です。できることと、できないことの境界線を理解することが重要です。</p>
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div class="bg-blue-50 p-6 rounded-lg">
+                            <h3 class="text-lg font-semibold text-blue-800 mb-2">主な職務（できること）</h3>
+                            <ul class="space-y-2">
+                                <li class="flex items-start"><span class="icon-placeholder mr-3 text-blue-500">💰</span><span><strong class="block">財産管理</strong>預貯金や不動産の管理、年金の受領、税金の支払いなど。</span></li>
+                                <li class="flex items-start"><span class="icon-placeholder mr-3 text-blue-500">📄</span><span><strong class="block">身上保護</strong>介護施設や医療機関との契約、要介護認定の申請など。</span></li>
+                            </ul>
+                        </div>
+                        <div class="bg-red-50 p-6 rounded-lg">
+                            <h3 class="text-lg font-semibold text-red-800 mb-2">主な限界（できないこと）</h3>
+                            <ul class="space-y-2">
+                                <li class="flex items-start"><span class="icon-placeholder mr-3 text-red-500">🤝</span><span><strong class="block">事実行為</strong>食事の介助や送迎、掃除といった直接的な介護。</span></li>
+                                <li class="flex items-start"><span class="icon-placeholder mr-3 text-red-500">🩺</span><span><strong class="block">医療同意</strong>手術や延命治療など、医療行為への同意。</span></li>
+                                <li class="flex items-start"><span class="icon-placeholder mr-3 text-red-500">🎁</span><span><strong class="block">本人のための費消以外</strong>家族の生活費や孫の学費に本人の財産を使うこと。</span></li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="pros-cons-section" class="content-section card p-6 md:p-8 mb-12">
+                    <h2 class="text-2xl font-bold text-center mb-6 text-gray-800">光と影：制度のメリット・デメリット</h2>
+                    <p class="text-center mb-8 text-gray-600 max-w-2xl mx-auto">成年後見制度は強力な保護を提供する一方、厳しい制約も伴います。利用を検討する上で、光と影の両面を理解することが不可欠です。</p>
+                    <div class="grid md:grid-cols-2 gap-8">
+                        <div>
+                            <h3 class="text-xl font-bold text-green-700 mb-4 text-center">メリット：鉄壁の保護</h3>
+                            <ul class="space-y-3 text-gray-700">
+                                <li class="p-4 bg-green-50 rounded-lg"><strong class="block">財産保護</strong>詐欺被害や浪費から財産を守る。</li>
+                                <li class="p-4 bg-green-50 rounded-lg"><strong class="block">契約の実現</strong>施設入所など、本人に必要な契約を代行できる。</li>
+                                <li class="p-4 bg-green-50 rounded-lg"><strong class="block">濫用防止</strong>親族による財産の使い込みを防ぐ。</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-red-700 mb-4 text-center">デメリット：譲れない硬直性</h3>
+                             <ul class="space-y-3 text-gray-700">
+                                <li class="p-4 bg-red-50 rounded-lg"><strong class="block">高額な費用</strong>専門家への報酬が継続的に発生する。</li>
+                                <li class="p-4 bg-red-50 rounded-lg"><strong class="block">柔軟性の欠如</strong>相続税対策や資産運用は原則できない。</li>
+                                <li class="p-4 bg-red-50 rounded-lg"><strong class="block">家族の意向が通らない</strong>裁判所が選んだ後見人が、家族と異なる方針をとることがある。</li>
+                                <li class="p-4 bg-red-50 rounded-lg"><strong class="block">やめられない</strong>一度始まると、本人が亡くなるまで原則終了できない。</li>
+                            </ul>
+                        </div>
+                    </div>
+                     <div class="mt-8 pt-6 border-t border-gray-200">
+                        <h3 class="text-lg font-semibold text-center mb-3">新たな選択肢：家族信託</h3>
+                        <p class="text-center text-gray-600">裁判所の関与を避け、より柔軟な財産管理を目指すなら「家族信託」も有効な選択肢です。ただし、身上保護はカバーできないため、任意後見と組み合わせるのが一般的です。</p>
+                    </div>
+                </section>
+
+                <section id="costs-section" class="content-section card p-6 md:p-8 mb-12">
+                    <h2 class="text-2xl font-bold text-center mb-4 text-gray-800">費用の実態</h2>
+                    <p class="text-center mb-8 text-gray-600 max-w-2xl mx-auto">制度の利用には、申立て時の一時的な費用と、後見が続く限り発生する継続的な報酬があります。特に専門家が後見人になる場合の報酬は、長期的な負担となります。</p>
+                    <div class="grid md:grid-cols-2 gap-8 mb-8">
+                        <div class="text-center p-4 bg-gray-50 rounded-lg">
+                            <h3 class="text-lg font-semibold mb-2">申立て時の費用（一回限り）</h3>
+                            <p class="text-3xl font-bold text-orange-600">約1万円〜</p>
+                            <p class="text-sm text-gray-600">（印紙、切手、診断書代など）</p>
+                            <p class="text-xs text-gray-500 mt-2">※裁判所の鑑定が必要な場合は別途10万〜20万円</p>
+                        </div>
+                        <div class="text-center p-4 bg-gray-50 rounded-lg">
+                            <h3 class="text-lg font-semibold mb-2">後見人への基本報酬（月額）</h3>
+                            <p class="text-3xl font-bold text-purple-600">2万円〜6万円</p>
+                            <p class="text-sm text-gray-600">（管理財産額に応じて変動）</p>
+                            <p class="text-xs text-gray-500 mt-2">※本人の財産から支払われます</p>
+                        </div>
+                    </div>
+                    <h3 class="text-lg font-semibold text-center mb-4">管理財産額と月額報酬の目安</h3>
+                    <div class="chart-container">
+                        <canvas id="costsChart"></canvas>
+                    </div>
+                </section>
+
+                <section id="resources-section" class="content-section card p-6 md:p-8">
+                    <h2 class="text-2xl font-bold text-center mb-6 text-gray-800">寄居町の相談窓口</h2>
+                    <p class="text-center mb-8 text-gray-600 max-w-2xl mx-auto">どこに相談すればいいか迷ったら、まずは身近な公的機関から始めるのが賢明です。寄居町では、以下の窓口が最初の相談先として最適です。</p>
+                    <div class="space-y-6">
+                        <div class="p-6 bg-white border border-gray-200 rounded-lg">
+                            <h3 class="text-xl font-bold text-gray-800">寄居町成年後見支援センター</h3>
+                            <p class="text-gray-600 mb-4">制度全般の相談から手続きの案内、専門家への紹介まで、幅広く対応してくれます。</p>
+                            <p><strong>役割:</strong> 総合相談、手続き案内、専門家紹介</p>
+                            <p><strong>住所:</strong> 〒369-1221 埼玉県大里郡寄居町保田原301 (寄居町社会福祉協議会内)</p>
+                            <p><strong>電話:</strong> 048-501-7027</p>
+                        </div>
+                        <div class="grid md:grid-cols-2 gap-6">
+                            <div class="p-4 bg-gray-50 rounded-lg">
+                                <h4 class="font-bold">埼玉弁護士会 熊谷支部</h4>
+                                <p class="text-sm text-gray-600">法律相談、代理人依頼</p>
+                                <p class="text-sm"><strong>電話:</strong> 048-521-0844</p>
+                            </div>
+                            <div class="p-4 bg-gray-50 rounded-lg">
+                                <h4 class="font-bold">埼玉司法書士会</h4>
+                                <p class="text-sm text-gray-600">書類作成支援、登記</p>
+                                <p class="text-sm"><strong>電話:</strong> 048-838-7472 (予約)</p>
+                            </div>
+                        </div>
+                         <div class="text-center mt-6 pt-6 border-t border-gray-200">
+                            <p class="font-semibold">最終的な申立て先</p>
+                            <p>さいたま家庭裁判所 熊谷支部 (電話: 048-500-3113)</p>
+                            <p class="text-sm text-gray-500">※ここは相談窓口ではなく、手続きを行う場所です。</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const btnStatutory = document.getElementById('btn-statutory');
+            const btnVoluntary = document.getElementById('btn-voluntary');
+            const statutorySection = document.getElementById('statutory-section');
+            const voluntarySection = document.getElementById('voluntary-section');
+            const roleSection = document.getElementById('guardian-role-section');
+            const prosConsSection = document.getElementById('pros-cons-section');
+            const costsSection = document.getElementById('costs-section');
+            const resourcesSection = document.getElementById('resources-section');
+
+            const allSections = [statutorySection, voluntarySection, roleSection, prosConsSection, costsSection, resourcesSection];
+            const allNavButtons = [btnStatutory, btnVoluntary];
+
+            function showSections() {
+                allSections.forEach(section => section.classList.add('active'));
+            }
+
+            btnStatutory.addEventListener('click', () => {
+                statutorySection.classList.add('active');
+                voluntarySection.classList.remove('active');
+                btnStatutory.classList.add('active');
+                btnVoluntary.classList.remove('active');
+                showSections();
+                document.getElementById('statutory-section').scrollIntoView({ behavior: 'smooth' });
+            });
+
+            btnVoluntary.addEventListener('click', () => {
+                voluntarySection.classList.add('active');
+                statutorySection.classList.remove('active');
+                btnVoluntary.classList.add('active');
+                btnStatutory.classList.remove('active');
+                showSections();
+                document.getElementById('voluntary-section').scrollIntoView({ behavior: 'smooth' });
+            });
+
+            const tabData = {
+                kouken: {
+                    title: '後見 (こうけん)',
+                    level: '最も高い支援',
+                    target: '判断能力が常に欠けている状態の方（例：重度の認知症）。',
+                    powers: '財産に関する全ての法律行為を代理。本人が行った不利益な契約は（日用品の購入等を除き）取り消せる。',
+                    consent: '申立てに本人の同意は不要。'
+                },
+                hosa: {
+                    title: '保佐 (ほさ)',
+                    level: '中程度の支援',
+                    target: '判断能力が著しく不十分な方（例：日常の買い物はできるが、不動産売買などの重要な契約は難しい）。',
+                    powers: '重要な法律行為（借金、不動産売却等）に同意を与えたり、同意なく行われた行為を取り消したりする。申立てにより特定の代理権も付与可能。',
+                    consent: '申立てに本人の同意は不要。'
+                },
+                hojo: {
+                    title: '補助 (ほじょ)',
+                    level: '最も低い・柔軟な支援',
+                    target: '判断能力が不十分な方（例：ほとんどのことは自分でできるが、複雑な手続きで支援が必要）。',
+                    powers: '申立てによって定められた特定の法律行為についてのみ、同意や代理を行う。権限は完全にカスタマイズ可能。',
+                    consent: '申立てに本人の同意が必須。'
+                }
+            };
+
+            const tabContainer = document.querySelector('#statutory-section nav');
+            const tabContentContainer = document.getElementById('tab-content');
+
+            function renderTabContent(tabKey) {
+                const data = tabData[tabKey];
+                tabContentContainer.innerHTML = `
+                    <div class="p-4 bg-blue-50 rounded-lg">
+                        <h3 class="text-xl font-bold text-blue-900">${data.title}</h3>
+                        <p class="text-sm text-blue-700 font-semibold mb-3">${data.level}</p>
+                        <div class="space-y-2">
+                            <p><strong>対象者:</strong> ${data.target}</p>
+                            <p><strong>権限:</strong> ${data.powers}</p>
+                            <p><strong>重要な点:</strong> ${data.consent}</p>
+                        </div>
+                    </div>
+                `;
+                 
+                tabContainer.querySelectorAll('.tab-button').forEach(btn => {
+                    btn.classList.remove('active');
+                    if (btn.dataset.tab === tabKey) {
+                        btn.classList.add('active');
+                    }
+                });
+            }
+
+            tabContainer.addEventListener('click', (e) => {
+                if (e.target.matches('.tab-button')) {
+                    renderTabContent(e.target.dataset.tab);
+                }
+            });
+
+            renderTabContent('kouken');
+
+            const ctx = document.getElementById('costsChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['~1,000万円', '1,000万円超 ~5,000万円', '5,000万円超'],
+                    datasets: [{
+                        label: '月額報酬の目安（万円）',
+                        data: [2, 3.5, 5.5],
+                        backgroundColor: [
+                            'rgba(54, 162, 235, 0.6)',
+                            'rgba(75, 192, 192, 0.6)',
+                            'rgba(153, 102, 255, 0.6)'
+                        ],
+                        borderColor: [
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(153, 102, 255, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '報酬額（万円）'
+                            },
+                            ticks: {
+                                callback: function(value, index, values) {
+                                    return value + '万円';
+                                }
+                            }
+                        },
+                        x: {
+                             title: {
+                                display: true,
+                                text: '管理財産額'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        if(context.label === '1,000万円超 ~5,000万円') {
+                                            label += '3~4万円';
+                                        } else if (context.label === '5,000万円超') {
+                                            label += '5~6万円';
+                                        }
+                                        else {
+                                            label += context.parsed.y + '万円';
+                                        }
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
